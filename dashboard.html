@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gas Monitor | Advanced Air Quality</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="css/style.css">
+
+</head>
+<body>
+
+<div class="grid-bg"></div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<div id="alert-banner" class="alert-banner">
+  <i class="fas fa-exclamation-triangle"></i>
+  <span id="alert-text">Alert: Sensor readings elevated</span>
+  <button class="banner-close" onclick="closeBanner()"><i class="fas fa-times"></i></button>
+</div>
+
+<div class="modal-overlay" id="threshold-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title"><i class="fas fa-sliders" style="color:var(--c-cyan);margin-right:10px;"></i>Alert Thresholds</span>
+      <button class="modal-close" onclick="closeModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-field">
+      <label>Warning Threshold</label>
+      <div class="modal-field-row">
+        <input type="number" class="threshold-input" id="thresh-warn" value="400" min="50" max="1300"/>
+        <span class="threshold-unit">ppm</span>
+      </div>
+    </div>
+    <div class="modal-field">
+      <label>Danger Threshold</label>
+      <div class="modal-field-row">
+        <input type="number" class="threshold-input" id="thresh-danger" value="1000" min="100" max="1400"/>
+        <span class="threshold-unit">ppm</span>
+      </div>
+    </div>
+    <div class="modal-field">
+      <label>Alert Cooldown</label>
+      <div class="modal-field-row">
+        <input type="number" class="threshold-input" id="thresh-cooldown" value="15" min="5" max="120"/>
+        <span class="threshold-unit">seconds</span>
+      </div>
+    </div>
+    <button class="modal-save-btn" onclick="saveThresholds()">Save Thresholds</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="fs-overlay" style="z-index: 9500;">
+  <div class="modal-box fs-box">
+    
+    <div class="fs-header">
+      <div class="fs-header-title">
+        <i class="fas fa-microchip" id="fs-icon"></i>
+        <div>
+          <h2 id="fs-title">Sensor Details</h2>
+          <span class="sensor-type-badge" id="fs-badge">TYPE</span>
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeFS()"><i class="fas fa-compress"></i></button>
+    </div>
+
+    <div class="fs-body">
+      <div class="fs-sidebar">
+        <div class="fs-val-wrap">
+          <div id="fs-val">0</div>
+          <div class="fs-unit">ppm</div>
+        </div>
+        
+        <div class="status-badge safe" id="fs-status" style="width: 100%; justify-content: center; margin-bottom: 24px; padding: 10px;">SAFE</div>
+        
+        <div class="stat-row" style="flex-direction: column; gap: 1px;">
+          <div class="stat-cell" style="width: 100%;">
+            <div class="stat-cell-label">Min</div>
+            <div class="stat-cell-val" id="fs-min">0</div>
+          </div>
+          <div class="stat-cell" style="width: 100%;">
+            <div class="stat-cell-label">Avg</div>
+            <div class="stat-cell-val" id="fs-avg">0</div>
+          </div>
+          <div class="stat-cell" style="width: 100%;">
+            <div class="stat-cell-label">Peak</div>
+            <div class="stat-cell-val" id="fs-max" style="color: var(--c-pink);">0</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="fs-main">
+        <div class="fs-chart-label">
+          <i class="fas fa-chart-line"></i> High-Resolution Live Telemetry
+        </div>
+        <div class="fs-canvas-container">
+          <canvas id="fs-canvas"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+<nav class="navbar">
+  <div class="nav-inner">
+    <a class="nav-brand" onclick="showPage('dashboard')">
+      <div class="brand-mark"><i class="fas fa-wind"></i></div>
+      <span class="brand-name">GasMonitor Pro</span>
+    </a>
+    <ul class="nav-links" id="nav-links">
+      <li><a class="nav-link active" id="nav-dashboard" onclick="showPage('dashboard')"><i class="fas fa-chart-line"></i>Dashboard</a></li>
+      <li><a class="nav-link" id="nav-gases" onclick="showPage('gases')"><i class="fas fa-flask"></i>Gases</a></li>
+      <li><a class="nav-link" id="nav-bioimpact" onclick="showPage('bioimpact')"><i class="fas fa-heart-pulse"></i>Bio-Impact</a></li>
+      <li><a class="nav-link" id="nav-mitigation" onclick="showPage('mitigation')"><i class="fas fa-leaf"></i>Mitigation</a></li>
+    </ul>
+    <div class="live-dot">LIVE</div>
+    <div class="nav-controls">
+      <button class="nav-btn" onclick="openModal()" title="Alert Settings">
+        <i class="fas fa-sliders"></i>
+      </button>
+      <button class="nav-btn" onclick="toggleAlerts()" title="Alerts">
+        <i class="fas fa-bell"></i>
+        <span class="notif-badge" id="notif-badge" style="display:none;"></span>
+      </button>
+      <button class="nav-btn" onclick="exportData()" title="Export CSV">
+        <i class="fas fa-download" id="export-icon"></i>
+      </button>
+      
+      <button class="nav-btn" id="logout-btn" title="Sign Out" style="color: #ff4d4d; margin-left: 10px;">
+        <i class="fas fa-sign-out-alt"></i>
+      </button>
+
+      <button class="hamburger" id="hamburger" onclick="toggleMobileMenu()">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<div class="mobile-nav" id="mobile-nav">
+  <a class="nav-link active" onclick="showPage('dashboard')"><i class="fas fa-chart-line"></i>Dashboard</a>
+  <a class="nav-link" onclick="showPage('gases')"><i class="fas fa-flask"></i>Gases</a>
+  <a class="nav-link" onclick="showPage('bioimpact')"><i class="fas fa-heart-pulse"></i>Bio-Impact</a>
+  <a class="nav-link" onclick="showPage('mitigation')"><i class="fas fa-leaf"></i>Mitigation</a>
+</div>
+
+<main>
+<div id="page-dashboard" class="page active">
+  <div class="page-header">
+    <div class="header-eyebrow"><i class="fas fa-satellite-dish"></i>Real-time Monitoring</div>
+    <h1>Air Quality Dashboard</h1>
+    <p>Live gas sensor telemetry — MQ2 & MQ135 monitoring with AQI analysis</p>
+  </div>
+
+  <div class="uptime-strip">
+    <div class="uptime-chip">
+      <span class="uptime-val" id="stat-uptime">00:00</span>
+      <span class="uptime-lbl">Session Uptime</span>
+    </div>
+    <div class="uptime-chip">
+      <span class="uptime-val" id="stat-reads">0</span>
+      <span class="uptime-lbl">Total Readings</span>
+    </div>
+    <div class="uptime-chip">
+      <span class="uptime-val" id="stat-alerts">0</span>
+      <span class="uptime-lbl">Alerts Fired</span>
+    </div>
+    <div class="uptime-chip">
+      <span class="uptime-val" id="stat-peak">0</span>
+      <span class="uptime-lbl">Peak PPM Today</span>
+    </div>
+  </div>
+
+  <div class="status-strip">
+    <div class="status-chip">
+      <div class="chip-icon cyan"><i class="fas fa-gauge-high"></i></div>
+      <div class="chip-meta">
+        <span class="chip-label">MQ2 Status</span>
+        <span class="chip-value safe" id="chip-mq2">Normal</span>
+      </div>
+    </div>
+    <div class="status-chip">
+      <div class="chip-icon violet"><i class="fas fa-wind"></i></div>
+      <div class="chip-meta">
+        <span class="chip-label">MQ135 Status</span>
+        <span class="chip-value safe" id="chip-mq135">Normal</span>
+      </div>
+    </div>
+    <div class="status-chip">
+      <div class="chip-icon green"><i class="fas fa-leaf"></i></div>
+      <div class="chip-meta">
+        <span class="chip-label">Air Quality</span>
+        <span class="chip-value safe" id="chip-aqi">Good</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sensor-row">
+    <div class="sensor-card">
+      <div class="accent-bar"></div>
+      <div class="sensor-inner">
+        <div class="sensor-head">
+          <div class="sensor-title">
+            MQ2 <span class="sensor-type-badge">LPG / SMOKE</span>
+          </div>
+          <div class="sensor-controls">
+            <button class="ctrl-btn" title="Alert Settings" onclick="openModal()"><i class="fas fa-sliders"></i></button>
+            <button class="ctrl-btn" title="Expand" onclick="expandCard('mq2')"><i class="fas fa-expand"></i></button>
+          </div>
+        </div>
+        <div class="gauge-wrap">
+          <div class="gauge-container">
+            <svg class="gauge-svg" viewBox="0 0 180 180">
+              <defs>
+                <linearGradient id="g-mq2" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:#63c8ff"/>
+                  <stop offset="100%" style="stop-color:#a78bfa"/>
+                </linearGradient>
+              </defs>
+              <circle cx="90" cy="90" r="80" class="gauge-track"/>
+              <circle cx="90" cy="90" r="80" class="gauge-glow" id="mq2-glow" stroke="#63c8ff"/>
+              <circle cx="90" cy="90" r="80" class="gauge-fill" id="mq2-fill" stroke="url(#g-mq2)"/>
+            </svg>
+            <div class="gauge-center">
+              <span class="gauge-val" id="mq2-val">0</span>
+              <span class="gauge-unit">ppm</span>
+            </div>
+          </div>
+        </div>
+        <div class="threshold-line">
+          <span class="threshold-dot warn"></span>Warn: <span id="lbl-warn-mq2">400</span> ppm
+          &nbsp;&nbsp;
+          <span class="threshold-dot danger"></span>Danger: <span id="lbl-danger-mq2">1000</span> ppm
+        </div>
+        <div class="sensor-status" style="margin-top:12px;">
+          <div class="status-badge safe" id="mq2-badge">Safe</div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-cell">
+            <div class="stat-cell-label">Min</div>
+            <div class="stat-cell-val" id="mq2-min">0</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-cell-label">Avg</div>
+            <div class="stat-cell-val" id="mq2-avg">0</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-cell-label">Max</div>
+            <div class="stat-cell-val" id="mq2-max">0</div>
+          </div>
+        </div>
+        <div class="sparkline-wrap">
+          <div class="sparkline-label">30s trend</div>
+          <canvas class="sparkline-canvas" id="spark-mq2" width="400" height="50"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="sensor-card">
+      <div class="accent-bar"></div>
+      <div class="sensor-inner">
+        <div class="sensor-head">
+          <div class="sensor-title">
+            MQ135 <span class="sensor-type-badge">AIR QUALITY</span>
+          </div>
+          <div class="sensor-controls">
+            <button class="ctrl-btn" title="Alert Settings" onclick="openModal()"><i class="fas fa-sliders"></i></button>
+            <button class="ctrl-btn" title="Expand" onclick="expandCard('mq135')"><i class="fas fa-expand"></i></button>
+          </div>
+        </div>
+        <div class="gauge-wrap">
+          <div class="gauge-container">
+            <svg class="gauge-svg" viewBox="0 0 180 180">
+              <defs>
+                <linearGradient id="g-mq135" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:#a78bfa"/>
+                  <stop offset="100%" style="stop-color:#f472b6"/>
+                </linearGradient>
+              </defs>
+              <circle cx="90" cy="90" r="80" class="gauge-track"/>
+              <circle cx="90" cy="90" r="80" class="gauge-glow" id="mq135-glow" stroke="#a78bfa"/>
+              <circle cx="90" cy="90" r="80" class="gauge-fill" id="mq135-fill" stroke="url(#g-mq135)"/>
+            </svg>
+            <div class="gauge-center">
+              <span class="gauge-val" id="mq135-val">0</span>
+              <span class="gauge-unit">ppm</span>
+            </div>
+          </div>
+        </div>
+        <div class="threshold-line">
+          <span class="threshold-dot warn"></span>Warn: <span id="lbl-warn-mq135">400</span> ppm
+          &nbsp;&nbsp;
+          <span class="threshold-dot danger"></span>Danger: <span id="lbl-danger-mq135">1000</span> ppm
+        </div>
+        <div class="sensor-status" style="margin-top:12px;">
+          <div class="status-badge safe" id="mq135-badge">Safe</div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-cell">
+            <div class="stat-cell-label">Min</div>
+            <div class="stat-cell-val" id="mq135-min">0</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-cell-label">Avg</div>
+            <div class="stat-cell-val" id="mq135-avg">0</div>
+          </div>
+          <div class="stat-cell">
+            <div class="stat-cell-label">Max</div>
+            <div class="stat-cell-val" id="mq135-max">0</div>
+          </div>
+        </div>
+        <div class="sparkline-wrap">
+          <div class="sparkline-label">30s trend</div>
+          <canvas class="sparkline-canvas" id="spark-mq135" width="400" height="50"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="health-row">
+    <div class="health-card">
+      <div class="health-label">
+        <span><i class="fas fa-gauge-high" style="color:var(--c-cyan);margin-right:6px;"></i>MQ2 Signal Strength</span>
+        <span class="health-pct" id="mq2-health-pct">100%</span>
+      </div>
+      <div class="health-bar-track"><div class="health-bar-fill" id="mq2-health-bar" style="width:100%;"></div></div>
+    </div>
+    <div class="health-card">
+      <div class="health-label">
+        <span><i class="fas fa-wind" style="color:var(--c-violet);margin-right:6px;"></i>MQ135 Signal Strength</span>
+        <span class="health-pct" id="mq135-health-pct">100%</span>
+      </div>
+      <div class="health-bar-track"><div class="health-bar-fill" id="mq135-health-bar" style="width:100%;background:linear-gradient(90deg,var(--c-violet),var(--c-pink));"></div></div>
+    </div>
+  </div>
+
+  <div class="aqi-panel">
+    <div class="aqi-top">
+      <div class="aqi-label-group">
+        <div class="aqi-panel-title"><i class="fas fa-chart-pie" style="color:var(--c-cyan);"></i>Air Quality Index</div>
+        <div class="aqi-panel-sub">Composite score from MQ2 + MQ135 sensors</div>
+      </div>
+      <div class="aqi-big-score" id="aqi-score">0</div>
+    </div>
+    <div class="aqi-band-wrap">
+      <div class="aqi-track">
+        <div class="aqi-marker" id="aqi-marker"></div>
+      </div>
+      <div class="aqi-labels">
+        <span>0</span><span>400</span><span>700</span><span>1000</span><span>1400</span>
+      </div>
+    </div>
+    <div class="aqi-status-text" id="aqi-status-text">Initializing sensors…</div>
+  </div>
+
+  <div class="history-panel">
+    <div class="panel-head" style="padding:20px 24px;">
+      <div class="panel-title"><i class="fas fa-chart-area"></i>Live History (Last 60 readings)</div>
+      <div style="display:flex;align-items:center;gap:16px;font-size:12px;">
+        <span style="display:flex;align-items:center;gap:6px;color:var(--c-cyan);"><span style="width:16px;height:2px;background:var(--c-cyan);border-radius:2px;display:inline-block;"></span>MQ2</span>
+        <span style="display:flex;align-items:center;gap:6px;color:var(--c-violet);"><span style="width:16px;height:2px;background:var(--c-violet);border-radius:2px;display:inline-block;"></span>MQ135</span>
+      </div>
+    </div>
+    <div class="history-canvas-wrap">
+      <canvas id="history-canvas"></canvas>
+    </div>
+  </div>
+
+  <div class="records-panel">
+    <div class="panel-head">
+      <div class="panel-title"><i class="fas fa-table-list"></i>Sensor Log</div>
+      <div class="panel-actions">
+        <button class="panel-btn" onclick="exportData()"><i class="fas fa-download" id="export-icon2"></i> Export</button>
+        <button class="panel-btn" onclick="clearRecords()"><i class="fas fa-trash-alt"></i> Clear</button>
+      </div>
+    </div>
+    <div class="records-body" id="records-body">
+      <div class="records-empty"><i class="fas fa-satellite-dish"></i><p>Waiting for sensor data…</p></div>
+    </div>
+  </div>
+</div>
+
+<div id="page-gases" class="page">
+  <div class="page-header">
+    <div class="header-eyebrow"><i class="fas fa-flask"></i>Sensor Profiles</div>
+    <h1>Gas Detection</h1>
+    <p>Complete reference for MQ2 and MQ135 sensor capabilities and detected substances</p>
+  </div>
+  <div class="gas-grid">
+    <div class="gas-card">
+      <div class="gas-card-tag">MQ2 SENSOR</div>
+      <h3><i class="fas fa-fire"></i>MQ2 — Combustible Gases</h3>
+      <ul class="gas-items">
+        <li class="gas-item"><span class="gas-item-icon">🔥</span>Liquefied Petroleum Gas (LPG)</li>
+        <li class="gas-item"><span class="gas-item-icon">💨</span>Methane (CH₄)</li>
+        <li class="gas-item"><span class="gas-item-icon">⚡</span>Hydrogen (H₂)</li>
+        <li class="gas-item"><span class="gas-item-icon">🌫️</span>Carbon Monoxide (CO)</li>
+        <li class="gas-item"><span class="gas-item-icon">🏭</span>Propane</li>
+        <li class="gas-item"><span class="gas-item-icon">💣</span>Isobutane</li>
+      </ul>
+      <div class="gas-range">Detection range: 300 – 10,000 ppm</div>
+    </div>
+    <div class="gas-card">
+      <div class="gas-card-tag">MQ135 SENSOR</div>
+      <h3><i class="fas fa-wind"></i>MQ135 — Air Quality Gases</h3>
+      <ul class="gas-items">
+        <li class="gas-item"><span class="gas-item-icon">🌫️</span>Nitrogen Dioxide (NO₂)</li>
+        <li class="gas-item"><span class="gas-item-icon">⚠️</span>Benzene (C₆H₆)</li>
+        <li class="gas-item"><span class="gas-item-icon">💨</span>Smoke & carbon particles</li>
+        <li class="gas-item"><span class="gas-item-icon">🌿</span>CO₂ (Carbon Dioxide)</li>
+        <li class="gas-item"><span class="gas-item-icon">☠️</span>Carbon Monoxide (CO)</li>
+        <li class="gas-item"><span class="gas-item-icon">🧪</span>Ammonia (NH₃)</li>
+      </ul>
+      <div class="gas-range">Detection range: 10 – 1,000 ppm</div>
+    </div>
+    <div class="gas-card">
+      <h3><i class="fas fa-scale-balanced"></i>Sensor Comparison</h3>
+      <table class="compare-table">
+        <tr><th>Feature</th><th>MQ2</th><th>MQ135</th></tr>
+        <tr><td>Response Time</td><td>~10s</td><td>~20s</td></tr>
+        <tr><td>Accuracy</td><td>±5%</td><td>±10%</td></tr>
+        <tr><td>Temp Range</td><td>-10–65°C</td><td>-10–65°C</td></tr>
+        <tr><td>Power</td><td>800mW</td><td>750mW</td></tr>
+        <tr><td>Best For</td><td>Combustibles</td><td>Air quality</td></tr>
+        <tr><td>Warm-up Time</td><td>20s</td><td>48h (full)</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="page-bioimpact" class="page">
+  <div class="page-header">
+    <div class="header-eyebrow"><i class="fas fa-heart-pulse"></i>Health Analysis</div>
+    <h1>Biological Impact</h1>
+    <p>Health effects of gas concentrations on human physiology across exposure levels</p>
+  </div>
+  <div class="impact-grid">
+    <div class="impact-card safe">
+      <span class="impact-emoji">😊</span>
+      <h3>Safe Level</h3>
+      <p class="impact-range">0 – 400 ppm</p>
+      <ul class="impact-items">
+        <li><i class="fas fa-check-circle"></i>Safe for all human exposure</li>
+        <li><i class="fas fa-check-circle"></i>No immediate health concerns</li>
+        <li><i class="fas fa-check-circle"></i>Suitable for children & elderly</li>
+        <li><i class="fas fa-check-circle"></i>Normal outdoor air quality</li>
+      </ul>
+    </div>
+    <div class="impact-card warn">
+      <span class="impact-emoji">⚠️</span>
+      <h3>Caution Level</h3>
+      <p class="impact-range">400 – 1,000 ppm</p>
+      <ul class="impact-items">
+        <li><i class="fas fa-exclamation-triangle"></i>Potential eye irritation</li>
+        <li><i class="fas fa-exclamation-triangle"></i>Respiratory discomfort possible</li>
+        <li><i class="fas fa-exclamation-triangle"></i>Ventilation strongly advised</li>
+        <li><i class="fas fa-exclamation-triangle"></i>Higher risk for sensitive groups</li>
+      </ul>
+    </div>
+    <div class="impact-card danger">
+      <span class="impact-emoji">☠️</span>
+      <h3>Danger Level</h3>
+      <p class="impact-range">1,000+ ppm</p>
+      <ul class="impact-items">
+        <li><i class="fas fa-times-circle"></i>Serious health hazard</li>
+        <li><i class="fas fa-times-circle"></i>Immediate action required</li>
+        <li><i class="fas fa-times-circle"></i>Evacuate area if possible</li>
+        <li><i class="fas fa-times-circle"></i>Use protective respirator</li>
+      </ul>
+    </div>
+  </div>
+  <div class="timeline-panel">
+    <h2><i class="fas fa-clock-rotate-left"></i>Exposure Duration Effects</h2>
+    <div class="timeline-grid">
+      <div class="t-item">
+        <div class="t-marker">0 – 5 min</div>
+        <p>Initial exposure detected. Sensors register concentration changes.</p>
+      </div>
+      <div class="t-item">
+        <div class="t-marker">5 – 30 min</div>
+        <p>Mild symptoms may begin in sensitive individuals. Headache, eye sting.</p>
+      </div>
+      <div class="t-item">
+        <div class="t-marker">30 – 60 min</div>
+        <p>Noticeable respiratory irritation. Immediate ventilation required.</p>
+      </div>
+      <div class="t-item">
+        <div class="t-marker">60+ min</div>
+        <p>Serious health effects. Seek fresh air and medical attention.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="page-mitigation" class="page">
+  <div class="page-header">
+    <div class="header-eyebrow"><i class="fas fa-leaf"></i>Response Strategies</div>
+    <h1>Gas Mitigation</h1>
+    <p>Evidence-based methods to detect, reduce, and eliminate gas hazards</p>
+  </div>
+  <div class="mitigation-grid">
+    <div class="mit-card">
+      <div class="mit-num">1</div>
+      <div class="level-tag prevention">Prevention</div>
+      <div class="mit-icon-wrap"><i class="fas fa-wind"></i></div>
+      <h3>Mechanical Ventilation</h3>
+      <p>Install exhaust fans and HVAC systems to ensure proper air circulation and rapid gas dispersion.</p>
+      <ul class="mit-list">
+        <li>Install extraction fans in high-risk zones</li>
+        <li>Schedule regular HVAC maintenance</li>
+        <li>Ensure adequate fresh air intake</li>
+      </ul>
+    </div>
+    <div class="mit-card">
+      <div class="mit-num">2</div>
+      <div class="level-tag prevention">Prevention</div>
+      <div class="mit-icon-wrap"><i class="fas fa-toolbox"></i></div>
+      <h3>Source Control</h3>
+      <p>Identify and eliminate gas emission sources through preventive maintenance and equipment upgrades.</p>
+      <ul class="mit-list">
+        <li>Inspect appliances and pipelines regularly</li>
+        <li>Fix leaks immediately upon detection</li>
+        <li>Use certified, leak-proof equipment</li>
+      </ul>
+    </div>
+    <div class="mit-card">
+      <div class="mit-num">3</div>
+      <div class="level-tag emergency">Emergency</div>
+      <div class="mit-icon-wrap"><i class="fas fa-shield"></i></div>
+      <h3>Protective Equipment</h3>
+      <p>Provide appropriate respirators and protective gear for personnel working in risk areas.</p>
+      <ul class="mit-list">
+        <li>N95/N100 masks for particulates</li>
+        <li>Gas-rated respirators for chemicals</li>
+        <li>Full-body protective suits if needed</li>
+      </ul>
+    </div>
+    <div class="mit-card">
+      <div class="mit-num">4</div>
+      <div class="level-tag monitoring">Monitoring</div>
+      <div class="mit-icon-wrap"><i class="fas fa-wifi"></i></div>
+      <h3>Continuous Monitoring</h3>
+      <p>Deploy sensor networks and real-time dashboards like this one for 24/7 threat detection.</p>
+      <ul class="mit-list">
+        <li>Deploy multiple sensor nodes</li>
+        <li>Configure threshold-based alerts</li>
+        <li>Log data for trend analysis</li>
+      </ul>
+    </div>
+    <div class="mit-card">
+      <div class="mit-num">5</div>
+      <div class="level-tag eco">Eco</div>
+      <div class="mit-icon-wrap" style="background:linear-gradient(135deg,var(--c-cyan2),var(--c-green))"><i class="fas fa-seedling"></i></div>
+      <h3>Environmental Remediation</h3>
+      <p>Use natural and mechanical air purification methods to reduce ambient gas concentrations.</p>
+      <ul class="mit-list">
+        <li>Add air-purifying plants (Snake, Pothos)</li>
+        <li>Install HEPA filtration systems</li>
+        <li>Use activated charcoal air purifiers</li>
+      </ul>
+    </div>
+    <div class="mit-card">
+      <div class="mit-num">6</div>
+      <div class="level-tag compliance">Compliance</div>
+      <div class="mit-icon-wrap" style="background:linear-gradient(135deg,var(--c-violet),var(--c-pink))"><i class="fas fa-clipboard-check"></i></div>
+      <h3>Testing & Compliance</h3>
+      <p>Conduct periodic air quality assessments to meet safety standards and regulatory requirements.</p>
+      <ul class="mit-list">
+        <li>Quarterly air quality audits</li>
+        <li>Annual professional inspections</li>
+        <li>Maintain compliance documentation</li>
+      </ul>
+    </div>
+  </div>
+</div>
+</main>
+
+<footer>
+  <div class="footer-inner">
+    <span class="footer-copy">© 2026 GasMonitor Pro · Advanced Air Quality Monitoring</span>
+    <div class="footer-links">
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+      <a href="#">Support</a>
+    </div>
+  </div>
+</footer>
+<div id="toast-container"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="js/app.js"></script>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+  const firebaseConfig = {
+      apiKey: "AIzaSyDn6ByAMIIFi8W66ZjAuQWAJfkSb0H5jhw",
+      authDomain: "house-monitoring-32f82.firebaseapp.com",
+      projectId: "house-monitoring-32f82",
+      storageBucket: "house-monitoring-32f82.firebasestorage.app",
+      messagingSenderId: "523847272058",
+      appId: "1:523847272058:web:32c53f5cb0642d00ee9dc3"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+
+  // 1. Route Protection: Kick out users who aren't logged in
+  onAuthStateChanged(auth, (user) => {
+      if (!user) {
+          window.location.href = "index.html";
+      }
+  });
+
+  // 2. Handle Logout
+  const logoutBtn = document.getElementById('logout-btn');
+  if (logoutBtn) {
+      logoutBtn.addEventListener('click', () => {
+          signOut(auth).then(() => {
+              console.log("User signed out.");
+              // The onAuthStateChanged observer will catch this and redirect automatically
+          }).catch((error) => {
+              console.error("Error signing out:", error);
+          });
+      });
+  }
+</script>
+
+</body>
+</html>

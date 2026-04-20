@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GasMonitor Pro | Secure Access</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+
+/* ===== DESIGN TOKENS — matched to dashboard ===== */
+:root {
+  --c-bg:          #05080f;
+  --c-surface:     #0b0f1a;
+  --c-surface2:    #111827;
+  --c-border:      rgba(255,255,255,0.06);
+  --c-border-hover:rgba(99,200,255,0.35);
+  --c-text:        #e8eaf0;
+  --c-muted:       #5a6680;
+  --c-muted2:      #8892a4;
+  --c-cyan:        #63c8ff;
+  --c-cyan2:       #00f0c8;
+  --c-violet:      #a78bfa;
+  --c-pink:        #f472b6;
+  --c-green:       #34d399;
+  --c-yellow:      #fbbf24;
+  --c-red:         #f87171;
+  --glow-cyan:     0 0 30px rgba(99,200,255,0.25);
+  --glow-violet:   0 0 30px rgba(167,139,250,0.25);
+  --glow-green:    0 0 30px rgba(52,211,153,0.3);
+  --transition:    0.35s cubic-bezier(0.4,0,0.2,1);
+  --transition-bounce: 0.5s cubic-bezier(0.34,1.56,0.64,1);
+  --radius:        16px;
+  --radius-lg:     24px;
+  --container-pad: clamp(16px,5vw,40px);
+}
+
+/* ===== RESET ===== */
+*,*::before,*::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; font-size:16px; overflow-x:hidden; -webkit-text-size-adjust:100%; }
+body {
+  font-family:'DM Sans',sans-serif;
+  background:var(--c-bg);
+  color:var(--c-text);
+  min-height:100vh;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+  position:relative;
+}
+a { text-decoration:none; color:inherit; }
+button { font-family:inherit; cursor:pointer; border:none; outline:none; touch-action:manipulation; }
+
+/* ===== NOISE OVERLAY ===== */
+body::before {
+  content:'';
+  position:fixed; inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04' /%3E%3C/svg%3E");
+  pointer-events:none; z-index:0; opacity:0.35;
+}
+
+/* ===== AMBIENT GRID ===== */
+.grid-bg {
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background-image:
+    linear-gradient(rgba(99,200,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99,200,255,0.03) 1px, transparent 1px);
+  background-size:clamp(30px,5vw,60px) clamp(30px,5vw,60px);
+  mask-image:radial-gradient(ellipse 80% 70% at 50% 50%, black, transparent);
+  -webkit-mask-image:radial-gradient(ellipse 80% 70% at 50% 50%, black, transparent);
+  animation:gridPan 80s linear infinite;
+}
+@keyframes gridPan { 0%{background-position:0 0;} 100%{background-position:60px 60px;} }
+
+/* ===== ORBS ===== */
+.orb { position:fixed; border-radius:50%; filter:blur(100px); pointer-events:none; z-index:0; }
+.orb-1 {
+  width:clamp(250px,40vw,500px); height:clamp(250px,40vw,500px);
+  background:radial-gradient(circle, rgba(99,200,255,0.12), transparent 70%);
+  top:-15%; left:-10%; animation:orbFloat1 20s ease-in-out infinite;
+}
+.orb-2 {
+  width:clamp(200px,35vw,400px); height:clamp(200px,35vw,400px);
+  background:radial-gradient(circle, rgba(167,139,250,0.1), transparent 70%);
+  bottom:-10%; right:-10%; animation:orbFloat2 20s ease-in-out infinite; animation-delay:7s;
+}
+.orb-3 {
+  width:clamp(150px,25vw,300px); height:clamp(150px,25vw,300px);
+  background:radial-gradient(circle, rgba(0,240,200,0.07), transparent 70%);
+  top:40%; left:30%; animation:orbFloat3 20s ease-in-out infinite; animation-delay:14s;
+}
+@keyframes orbFloat1 { 0%,100%{transform:translate(0,0) scale(1);} 33%{transform:translate(40px,-60px) scale(1.1);} 66%{transform:translate(-30px,40px) scale(0.9);} }
+@keyframes orbFloat2 { 0%,100%{transform:translate(0,0) scale(1);} 33%{transform:translate(-40px,50px) scale(1.05);} 66%{transform:translate(30px,-30px) scale(0.95);} }
+@keyframes orbFloat3 { 0%,100%{transform:translate(-50%,-50%) scale(1);} 50%{transform:translate(-50%,-50%) scale(1.15);} }
+
+/* ===== SCANLINE ===== */
+.scanline {
+  position:fixed; width:100%; height:2px; pointer-events:none; z-index:0;
+  background:linear-gradient(90deg, transparent, var(--c-cyan), transparent);
+  opacity:0.05; animation:scanDown 10s linear infinite;
+}
+@keyframes scanDown { 0%{top:-2px;} 100%{top:100vh;} }
+
+/* ===== LAYOUT ===== */
+.page-wrap {
+  position:relative; z-index:1;
+  min-height:100vh;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  padding:clamp(24px,5vw,60px) var(--container-pad);
+}
+
+.main-grid {
+  width:100%;
+  max-width:1160px;
+  display:grid;
+  grid-template-columns: 1fr 480px;
+  gap:clamp(40px,6vw,80px);
+  align-items:center;
+}
+
+/* ===== LEFT PANEL ===== */
+.left-panel {
+  display:flex;
+  flex-direction:column;
+  gap:clamp(24px,3vw,36px);
+}
+
+/* ── Brand ── */
+.brand {
+  display:flex;
+  align-items:center;
+  gap:14px;
+  opacity:0;
+  animation:fadeUp 0.7s cubic-bezier(0.22,1,0.36,1) 0.1s forwards;
+}
+
+.brand-mark {
+  width:42px; height:42px;
+  border-radius:12px;
+  background:linear-gradient(135deg, var(--c-cyan), var(--c-violet));
+  display:flex; align-items:center; justify-content:center;
+  font-size:18px; color:#fff;
+  box-shadow:var(--glow-cyan);
+  animation:brandPulse 3s ease-in-out infinite;
+  flex-shrink:0;
+  transition:var(--transition-bounce);
+}
+.brand-mark:hover { transform:scale(1.12) rotate(-5deg); }
+@keyframes brandPulse { 0%,100%{box-shadow:var(--glow-cyan);} 50%{box-shadow:0 0 50px rgba(99,200,255,0.5);} }
+
+.brand-name {
+  font-family:'Syne',sans-serif;
+  font-size:clamp(16px,2.2vw,20px);
+  font-weight:800;
+  background:linear-gradient(135deg, var(--c-cyan), var(--c-violet));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+  letter-spacing:0.5px;
+}
+
+/* ── Live Badge ── */
+.live-badge {
+  display:inline-flex; align-items:center; gap:8px;
+  background:rgba(99,200,255,0.06);
+  border:1px solid rgba(99,200,255,0.15);
+  border-radius:100px; padding:6px 14px;
+  font-family:'Space Mono', monospace;
+  font-size:10px; color:var(--c-cyan);
+  letter-spacing:2px; text-transform:uppercase;
+  width:fit-content;
+  opacity:0;
+  animation:fadeUp 0.7s cubic-bezier(0.22,1,0.36,1) 0.2s forwards;
+  transition:var(--transition);
+}
+.live-badge:hover { background:rgba(99,200,255,0.1); border-color:rgba(99,200,255,0.3); }
+.live-dot {
+  width:7px; height:7px;
+  background:var(--c-cyan); border-radius:50%;
+  animation:livePulse 1.5s ease-in-out infinite;
+}
+@keyframes livePulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.4;transform:scale(0.7);} }
+
+/* ── Hero ── */
+.left-hero {
+  opacity:0;
+  animation:fadeUp 0.7s cubic-bezier(0.22,1,0.36,1) 0.3s forwards;
+}
+.left-hero h1 {
+  font-family:'Syne',sans-serif;
+  font-size:clamp(30px,4.5vw,52px);
+  font-weight:800;
+  line-height:1.1;
+  letter-spacing:-1.5px;
+}
+.gradient-text {
+  background:linear-gradient(135deg, var(--c-cyan), var(--c-violet));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+}
+.left-hero p {
+  margin-top:16px;
+  font-size:clamp(13px,1.4vw,15px);
+  color:var(--c-muted2);
+  line-height:1.75;
+  font-weight:300;
+  max-width:360px;
+}
+
+/* ── Stats Grid ── */
+.stats-row {
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:12px;
+  opacity:0;
+  animation:fadeUp 0.7s cubic-bezier(0.22,1,0.36,1) 0.4s forwards;
+}
+
+.stat-card {
+  background:var(--c-surface);
+  border:1px solid var(--c-border);
+  border-radius:var(--radius);
+  padding:clamp(14px,2vw,18px) 12px;
+  text-align:center;
+  cursor:default;
+  position:relative;
+  overflow:hidden;
+  transition:var(--transition);
+}
+.stat-card::before {
+  content:'';
+  position:absolute; top:0; left:0; right:0; height:1px;
+  background:linear-gradient(90deg, transparent, var(--c-cyan), transparent);
+  opacity:0; transition:opacity 0.3s ease;
+}
+.stat-card::after {
+  content:'';
+  position:absolute; inset:0;
+  background:radial-gradient(circle at 50% 0%, rgba(99,200,255,0.06), transparent 60%);
+  opacity:0; transition:opacity 0.3s ease; pointer-events:none;
+}
+.stat-card:hover { border-color:var(--c-border-hover); transform:translateY(-4px); box-shadow:0 16px 40px rgba(0,0,0,0.4), var(--glow-cyan); }
+.stat-card:hover::before { opacity:1; }
+.stat-card:hover::after  { opacity:1; }
+.stat-num {
+  font-family:'Space Mono',monospace;
+  font-size:clamp(18px,2.5vw,22px);
+  font-weight:700; color:var(--c-cyan); display:block;
+}
+.stat-label {
+  font-size:10px; font-weight:600; color:var(--c-muted);
+  text-transform:uppercase; letter-spacing:1px;
+  margin-top:4px; display:block;
+}
+
+/* ── Feature List ── */
+.feature-list {
+  display:flex; flex-direction:column; gap:10px;
+  opacity:0;
+  animation:fadeUp 0.7s cubic-bezier(0.22,1,0.36,1) 0.5s forwards;
+}
+.feature-item {
+  display:flex; align-items:center; gap:12px;
+  font-size:13px; color:var(--c-muted2); font-weight:400;
+  padding:10px 14px;
+  background:transparent;
+  border:1px solid transparent;
+  border-radius:12px;
+  transition:var(--transition);
+  cursor:default;
+}
+.feature-item:hover {
+  background:rgba(99,200,255,0.04);
+  border-color:var(--c-border-hover);
+  color:var(--c-text);
+  transform:translateX(6px);
+}
+.feature-item:hover .feat-icon { background:rgba(99,200,255,0.15); box-shadow:var(--glow-cyan); }
+.feature-item:hover .feat-icon i { color:var(--c-cyan); transform:scale(1.2) rotate(-8deg); }
+.feat-icon {
+  width:30px; height:30px;
+  background:rgba(255,255,255,0.04);
+  border:1px solid var(--c-border);
+  border-radius:9px;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+  transition:var(--transition);
+}
+.feat-icon i { font-size:12px; color:var(--c-muted2); transition:var(--transition); }
+
+/* ===== AUTH CARD ===== */
+.auth-card {
+  background:var(--c-surface);
+  border:1px solid var(--c-border);
+  border-radius:var(--radius-lg);
+  padding:clamp(28px,4vw,44px);
+  position:relative; overflow:hidden;
+  transition:border-color 0.3s ease, box-shadow 0.3s ease;
+  opacity:0;
+  animation:fadeUp 0.7s cubic-bezier(0.22,1,0.36,1) 0.25s forwards;
+}
+.auth-card:hover { border-color:rgba(99,200,255,0.12); box-shadow:0 20px 60px rgba(0,0,0,0.5); }
+
+.auth-card::before {
+  content:'';
+  position:absolute; top:0; left:0;
+  width:160px; height:160px;
+  background:radial-gradient(circle at top left, rgba(99,200,255,0.07), transparent 70%);
+  pointer-events:none;
+}
+.auth-card::after {
+  content:'';
+  position:absolute; bottom:0; right:0;
+  width:120px; height:120px;
+  background:radial-gradient(circle at bottom right, rgba(167,139,250,0.06), transparent 70%);
+  pointer-events:none;
+}
+
+.corner { position:absolute; width:22px; height:22px; pointer-events:none; z-index:2; transition:var(--transition); }
+.corner-tl { top:12px; left:12px; border-top:1.5px solid var(--c-cyan); border-left:1.5px solid var(--c-cyan); border-radius:4px 0 0 0; opacity:0.4; }
+.corner-tr { top:12px; right:12px; border-top:1.5px solid var(--c-cyan); border-right:1.5px solid var(--c-cyan); border-radius:0 4px 0 0; opacity:0.4; }
+.corner-bl { bottom:12px; left:12px; border-bottom:1.5px solid var(--c-cyan); border-left:1.5px solid var(--c-cyan); border-radius:0 0 0 4px; opacity:0.4; }
+.corner-br { bottom:12px; right:12px; border-bottom:1.5px solid var(--c-cyan); border-right:1.5px solid var(--c-cyan); border-radius:0 0 4px 0; opacity:0.4; }
+.auth-card:hover .corner { opacity:0.8; }
+
+/* ── Card Header ── */
+.card-header { margin-bottom:26px; position:relative; z-index:1; }
+.card-header-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+.card-header h2 {
+  font-family:'Syne',sans-serif;
+  font-size:clamp(22px,3vw,28px);
+  font-weight:800;
+  letter-spacing:-0.5px;
+}
+.card-header p { font-size:13px; color:var(--c-muted); margin-top:4px; line-height:1.5; }
+.auth-id {
+  font-family:'Space Mono',monospace;
+  font-size:10px; color:var(--c-muted);
+  letter-spacing:2px;
+  background:rgba(99,200,255,0.05);
+  border:1px solid var(--c-border);
+  border-radius:6px; padding:4px 8px;
+}
+
+/* ── Tabs ── */
+.auth-tabs {
+  display:flex;
+  background:var(--c-bg);
+  border:1px solid var(--c-border);
+  border-radius:12px; padding:4px;
+  margin-bottom:26px;
+  position:relative; z-index:1;
+  gap:4px;
+}
+.auth-tabs button {
+  flex:1; padding:11px;
+  background:transparent; color:var(--c-muted);
+  font-family:'Space Mono',monospace;
+  font-size:11px; font-weight:700;
+  letter-spacing:1.5px; text-transform:uppercase;
+  border-radius:8px;
+  transition:var(--transition);
+  position:relative; overflow:hidden;
+}
+.auth-tabs button::before {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg, rgba(99,200,255,0.08), transparent);
+  opacity:0; transition:opacity 0.25s ease;
+}
+.auth-tabs button.active {
+  background:var(--c-surface2); color:var(--c-cyan);
+  border:1px solid rgba(99,200,255,0.2);
+  box-shadow:0 4px 12px rgba(0,0,0,0.3);
+}
+.auth-tabs button.active::before { opacity:1; }
+.auth-tabs button:not(.active):hover { color:var(--c-muted2); background:rgba(255,255,255,0.03); }
+
+/* ── Form ── */
+.auth-form { position:relative; z-index:1; }
+.input-group { margin-bottom:18px; position:relative; }
+.input-group label {
+  display:flex; align-items:center; gap:6px;
+  font-family:'Space Mono',monospace;
+  font-size:10px; font-weight:700;
+  color:var(--c-muted); margin-bottom:8px;
+  text-transform:uppercase; letter-spacing:1.5px;
+}
+.input-group label i { color:var(--c-cyan); font-size:10px; }
+.input-wrapper { position:relative; }
+
+.input-wrapper input {
+  width:100%;
+  padding:14px 16px;
+  padding-right:48px;
+  background:var(--c-bg);
+  border:1px solid var(--c-border);
+  border-radius:12px;
+  color:var(--c-text);
+  font-family:'DM Sans',sans-serif;
+  font-size:14px;
+  outline:none;
+  transition:all 0.3s ease;
+  caret-color:var(--c-cyan);
+}
+.input-wrapper input::placeholder { color:var(--c-muted); font-size:13px; }
+.input-wrapper input:focus {
+  border-color:var(--c-border-hover);
+  background:#060a12;
+  box-shadow:0 0 0 3px rgba(99,200,255,0.06), inset 0 0 20px rgba(99,200,255,0.02);
+}
+.input-wrapper input:focus + .input-line { width:80%; }
+
+.input-line {
+  position:absolute; bottom:0; left:50%;
+  transform:translateX(-50%);
+  width:0; height:1.5px;
+  background:linear-gradient(90deg, var(--c-cyan), var(--c-violet));
+  border-radius:0 0 12px 12px;
+  transition:width 0.35s ease; pointer-events:none;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow:0 0 0 30px #05080f inset !important;
+  -webkit-text-fill-color:var(--c-text) !important;
+  transition:background-color 5000s;
+}
+
+.icon-right {
+  position:absolute; right:14px; top:50%;
+  transform:translateY(-50%);
+  color:var(--c-muted); cursor:pointer;
+  font-size:14px;
+  transition:var(--transition); z-index:2;
+}
+.icon-right:hover { color:var(--c-cyan); transform:translateY(-50%) scale(1.2); }
+
+/* Strength bar */
+.strength-bar-wrap { margin-top:8px; display:none; }
+.strength-bar-wrap.visible { display:block; }
+.strength-bar { height:3px; background:var(--c-surface2); border-radius:2px; overflow:hidden; }
+.strength-fill { height:100%; width:0; border-radius:2px; transition:width 0.4s ease, background 0.4s ease; }
+.strength-label { font-family:'Space Mono',monospace; font-size:9px; color:var(--c-muted); letter-spacing:1.5px; margin-top:5px; text-transform:uppercase; }
+
+/* Forgot link */
+.forgot-link {
+  display:block; text-align:right;
+  color:var(--c-muted2); font-size:12px;
+  font-family:'Space Mono',monospace; letter-spacing:0.5px;
+  text-decoration:none; margin-bottom:20px; margin-top:-4px;
+  transition:color 0.2s ease;
+}
+.forgot-link:hover { color:var(--c-cyan); }
+
+/* ── Primary Button ── */
+.btn-primary {
+  width:100%; padding:16px;
+  background:linear-gradient(135deg, rgba(99,200,255,0.15), rgba(99,200,255,0.08));
+  border:1px solid rgba(99,200,255,0.3);
+  border-radius:12px; color:var(--c-cyan);
+  font-family:'Space Mono',monospace;
+  font-size:12px; font-weight:700;
+  letter-spacing:2px; text-transform:uppercase;
+  display:flex; align-items:center; justify-content:center; gap:10px;
+  position:relative; overflow:hidden;
+  transition:all 0.3s ease;
+}
+.btn-primary::before {
+  content:''; position:absolute; top:0; left:-100%;
+  width:100%; height:100%;
+  background:linear-gradient(90deg, transparent, rgba(99,200,255,0.15), transparent);
+  transition:left 0.5s ease;
+}
+.btn-primary::after {
+  content:''; position:absolute; inset:0;
+  background:radial-gradient(circle at var(--mx,50%) var(--my,50%), rgba(99,200,255,0.1), transparent 60%);
+  opacity:0; transition:opacity 0.3s ease; pointer-events:none;
+}
+.btn-primary:hover {
+  background:linear-gradient(135deg, rgba(99,200,255,0.22), rgba(99,200,255,0.12));
+  border-color:rgba(99,200,255,0.55);
+  box-shadow:0 0 40px rgba(99,200,255,0.15), 0 6px 20px rgba(0,0,0,0.3);
+  transform:translateY(-2px);
+}
+.btn-primary:hover::before { left:100%; }
+.btn-primary:hover::after  { opacity:1; }
+.btn-primary:active { transform:translateY(0); }
+.btn-primary:disabled { opacity:0.45; cursor:not-allowed; transform:none; }
+
+.btn-spinner {
+  display:none; width:14px; height:14px;
+  border:2px solid rgba(99,200,255,0.3);
+  border-top-color:var(--c-cyan);
+  border-radius:50%;
+  animation:spin 0.7s linear infinite;
+}
+.btn-primary.loading .btn-spinner { display:block; }
+.btn-primary.loading .btn-text-wrap { display:none; }
+@keyframes spin { to{transform:rotate(360deg);} }
+
+/* ── Divider ── */
+.divider {
+  display:flex; align-items:center; gap:12px;
+  margin:22px 0;
+  font-family:'Space Mono',monospace;
+  font-size:9px; font-weight:700;
+  color:var(--c-muted); letter-spacing:2px; text-transform:uppercase;
+}
+.divider::before, .divider::after {
+  content:''; flex:1; height:1px;
+  background:linear-gradient(90deg, transparent, var(--c-border), transparent);
+}
+
+/* ── Social Buttons ── */
+.social-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:24px; }
+.btn-social {
+  padding:13px 10px;
+  background:var(--c-bg);
+  border:1px solid var(--c-border);
+  border-radius:12px; color:var(--c-muted2);
+  font-family:'DM Sans',sans-serif;
+  font-size:13px; font-weight:500;
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  transition:var(--transition);
+  position:relative; overflow:hidden;
+}
+.btn-social::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:1.5px;
+  background:linear-gradient(90deg, transparent, var(--c-cyan), transparent);
+  opacity:0; transition:opacity 0.25s ease;
+}
+.btn-social::after {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg, rgba(99,200,255,0.05), transparent);
+  opacity:0; transition:opacity 0.25s ease;
+}
+.btn-social:hover {
+  background:var(--c-surface2);
+  border-color:rgba(99,200,255,0.2);
+  color:var(--c-text);
+  transform:translateY(-3px);
+  box-shadow:0 10px 24px rgba(0,0,0,0.4);
+}
+.btn-social:hover::before { opacity:1; }
+.btn-social:hover::after  { opacity:1; }
+.btn-social:active { transform:translateY(0); }
+.btn-social img { width:17px; }
+
+/* ── Status Message ── */
+#statusMessage {
+  margin-top:16px;
+  font-family:'Space Mono',monospace;
+  font-size:11px; letter-spacing:0.5px;
+  padding:12px 14px; border-radius:10px;
+  display:none; align-items:center; gap:10px;
+  position:relative; z-index:1;
+}
+#statusMessage.show { display:flex; }
+.msg-error   { background:rgba(248,113,113,0.08); color:var(--c-red);    border:1px solid rgba(248,113,113,0.2); }
+.msg-success { background:rgba(52,211,153,0.08);  color:var(--c-green);  border:1px solid rgba(52,211,153,0.2); }
+.msg-info    { background:rgba(99,200,255,0.06);   color:var(--c-cyan);   border:1px solid rgba(99,200,255,0.15); }
+
+/* ── Card Footer ── */
+.card-footer {
+  text-align:center; font-size:13px;
+  color:var(--c-muted); position:relative; z-index:1; padding-top:4px;
+}
+.card-footer span {
+  color:var(--c-cyan); cursor:pointer; font-weight:600;
+  transition:var(--transition);
+}
+.card-footer span:hover { opacity:0.75; text-shadow:0 0 15px rgba(99,200,255,0.5); }
+
+/* ===== SECURITY STRIP ===== */
+.security-strip {
+  display:flex; justify-content:center;
+  gap:clamp(12px,3vw,28px); margin-top:clamp(24px,4vw,40px);
+  flex-wrap:wrap;
+}
+.sec-item {
+  display:flex; align-items:center; gap:7px;
+  font-family:'Space Mono',monospace;
+  font-size:9px; color:var(--c-muted);
+  letter-spacing:1.5px; text-transform:uppercase;
+  padding:8px 12px;
+  border:1px solid transparent;
+  border-radius:8px;
+  transition:var(--transition);
+  cursor:default;
+}
+.sec-item:hover { border-color:var(--c-border); background:var(--c-surface); color:var(--c-muted2); }
+.sec-item:hover i { color:var(--c-cyan); transform:scale(1.2); }
+.sec-item i { color:var(--c-cyan); font-size:11px; opacity:0.7; transition:var(--transition); }
+
+/* ===== TOAST ===== */
+.toast {
+  position:fixed; bottom:30px; right:24px;
+  padding:14px 20px;
+  background:var(--c-surface2);
+  border:1px solid var(--c-border-hover);
+  border-radius:12px;
+  font-family:'Space Mono',monospace;
+  font-size:11px; color:var(--c-cyan);
+  letter-spacing:0.5px;
+  display:flex; align-items:center; gap:10px;
+  transform:translateX(120%);
+  transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  z-index:999;
+  box-shadow:0 10px 40px rgba(0,0,0,0.4), var(--glow-cyan);
+}
+.toast.show { transform:translateX(0); }
+
+/* ===== MOBILE BRAND ===== */
+.mobile-brand {
+  display:none;
+  align-items:center; gap:12px;
+  justify-content:center;
+  margin-bottom:28px;
+  opacity:0;
+  animation:fadeUp 0.7s cubic-bezier(0.22,1,0.36,1) 0.1s forwards;
+}
+.mobile-brand-mark {
+  width:36px; height:36px;
+  border-radius:10px;
+  background:linear-gradient(135deg, var(--c-cyan), var(--c-violet));
+  display:flex; align-items:center; justify-content:center;
+  font-size:15px; color:#fff;
+  box-shadow:var(--glow-cyan);
+}
+.mobile-brand-name {
+  font-family:'Syne',sans-serif;
+  font-size:18px; font-weight:800;
+  background:linear-gradient(135deg, var(--c-cyan), var(--c-violet));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+}
+
+/* ===== ENTRY ANIMATION ===== */
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(20px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width:960px) {
+  .main-grid {
+    grid-template-columns:1fr;
+    max-width:520px;
+    gap:0;
+  }
+  .left-panel { display:none; }
+  .mobile-brand { display:flex; }
+  .auth-card { animation-delay:0.15s; }
+}
+
+@media (max-width:560px) {
+  .auth-card { padding:28px 20px; border-radius:20px; }
+  .security-strip { gap:8px; }
+  .sec-item { padding:6px 8px; font-size:8px; }
+}
+
+@media (max-width:420px) {
+  .auth-card { padding:24px 16px; }
+  .social-grid { grid-template-columns:1fr; }
+  .card-header h2 { font-size:20px; }
+  .stats-row { display:none; }
+  .toast { right:12px; left:12px; transform:translateY(120%); }
+  .toast.show { transform:translateY(0); }
+  .security-strip { display:none; }
+}
+
+/* ===== EXTRA HOVER EFFECTS ===== */
+.auth-card { transform-style:preserve-3d; will-change:transform; }
+
+@keyframes ripple {
+  to { transform:scale(4); opacity:0; }
+}
+.ripple-el {
+  position:absolute;
+  border-radius:50%;
+  background:rgba(99,200,255,0.3);
+  transform:scale(0);
+  animation:ripple 0.6s ease-out forwards;
+  pointer-events:none;
+}
+
+.input-group:focus-within label { color:var(--c-cyan); }
+
+#particles { position:fixed; inset:0; z-index:0; pointer-events:none; opacity:0.4; }
+
+</style>
+</head>
+<body>
+
+<canvas id="particles"></canvas>
+
+<div class="grid-bg"></div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+<div class="scanline"></div>
+
+<div class="toast" id="toast">
+  <i class="fa-solid fa-circle-check"></i>
+  <span id="toastMsg">Session secure</span>
+</div>
+
+<div class="page-wrap">
+
+  <div class="main-grid">
+
+    <div class="left-panel">
+
+      <div class="brand">
+        <div class="brand-mark"><i class="fa-solid fa-wind"></i></div>
+        <span class="brand-name">GasMonitor<span style="opacity:0.7"> Pro</span></span>
+      </div>
+
+      <div class="live-badge">
+        <div class="live-dot"></div>
+        Sensors Online
+      </div>
+
+      <div class="left-hero">
+        <h1>Monitor Your<br><span class="gradient-text">Air Quality</span></h1>
+        <p>Real-time MQ2 & MQ135 sensor telemetry, AQI analysis, and smart hazard alerts — all in one unified dashboard.</p>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <span class="stat-num">MQ2</span>
+          <span class="stat-label">Combustibles</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-num">99.9%</span>
+          <span class="stat-label">Uptime</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-num">Live</span>
+          <span class="stat-label">AQI Index</span>
+        </div>
+      </div>
+
+      <div class="feature-list">
+        <div class="feature-item">
+          <div class="feat-icon"><i class="fa-solid fa-chart-line"></i></div>
+          Real-time MQ2 & MQ135 gas telemetry
+        </div>
+        <div class="feature-item">
+          <div class="feat-icon"><i class="fa-solid fa-bell"></i></div>
+          Smart alerts when gas levels exceed thresholds
+        </div>
+        <div class="feature-item">
+          <div class="feat-icon"><i class="fa-solid fa-rotate"></i></div>
+          Live AQI index with historical trend charts
+        </div>
+        <div class="feature-item">
+          <div class="feat-icon"><i class="fa-solid fa-shield-halved"></i></div>
+          Secure access with MFA protection
+        </div>
+      </div>
+
+    </div>
+
+    <div class="auth-card" id="authCard">
+      <div class="corner corner-tl"></div>
+      <div class="corner corner-tr"></div>
+      <div class="corner corner-bl"></div>
+      <div class="corner corner-br"></div>
+
+      <div class="mobile-brand" id="mobileBrand">
+        <div class="mobile-brand-mark"><i class="fa-solid fa-wind"></i></div>
+        <span class="mobile-brand-name">GasMonitor Pro</span>
+      </div>
+
+      <div class="card-header">
+        <div class="card-header-top">
+          <h2 id="formTitle">Welcome Back</h2>
+          <span class="auth-id" id="authId">AUTH::LOGIN</span>
+        </div>
+        <p id="formSubtitle">Enter your credentials to access the monitoring dashboard.</p>
+      </div>
+
+      <div class="auth-tabs">
+        <button id="tabLogin" class="active" type="button">// Log In</button>
+        <button id="tabSignup" type="button">// Sign Up</button>
+      </div>
+
+      <form id="authForm" class="auth-form" novalidate>
+
+        <div class="input-group" id="nameGroup" style="display:none;">
+          <label><i class="fa-solid fa-user"></i> Full Name</label>
+          <div class="input-wrapper">
+            <input type="text" id="nameInput" placeholder="John Doe" autocomplete="name">
+            <div class="input-line"></div>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label><i class="fa-regular fa-envelope"></i> Email Address</label>
+          <div class="input-wrapper">
+            <input type="email" id="email" placeholder="you@example.com" required autocomplete="email">
+            <div class="input-line"></div>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label><i class="fa-solid fa-lock"></i> Password</label>
+          <div class="input-wrapper">
+            <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
+            <i class="fa-regular fa-eye icon-right" id="togglePassword"></i>
+            <div class="input-line"></div>
+          </div>
+          <div class="strength-bar-wrap" id="strengthWrap">
+            <div class="strength-bar">
+              <div class="strength-fill" id="strengthFill"></div>
+            </div>
+            <div class="strength-label" id="strengthLabel">Strength: —</div>
+          </div>
+        </div>
+
+        <div class="input-group" id="confirmGroup" style="display:none;">
+          <label><i class="fa-solid fa-shield-halved"></i> Confirm Password</label>
+          <div class="input-wrapper">
+            <input type="password" id="confirmPassword" placeholder="••••••••" autocomplete="new-password">
+            <i class="fa-regular fa-eye icon-right" id="toggleConfirm"></i>
+            <div class="input-line"></div>
+          </div>
+        </div>
+
+        <a href="#" class="forgot-link" id="forgotLink">Forgot credentials?</a>
+
+        <button type="submit" class="btn-primary" id="submitBtn">
+          <div class="btn-spinner"></div>
+          <div class="btn-text-wrap">
+            <span id="submitBtnText">Authenticate</span>
+            <i class="fa-solid fa-arrow-right"></i>
+          </div>
+        </button>
+
+      </form>
+
+      <div id="statusMessage"></div>
+
+      <div class="divider">or continue with</div>
+
+      <div class="social-grid">
+        <button class="btn-social" id="googleBtn" type="button">
+          <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google"> Google
+        </button>
+        <button class="btn-social" id="githubBtn" type="button">
+          <i class="fa-brands fa-github"></i> GitHub
+        </button>
+      </div>
+
+      <div class="card-footer">
+        <p id="toggleText">Don't have an account? <span id="toggleModeFooter">Sign Up</span></p>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="security-strip">
+    <div class="sec-item"><i class="fa-solid fa-shield-halved"></i> 256-bit SSL</div>
+    <div class="sec-item"><i class="fa-solid fa-key"></i> Firebase Auth</div>
+    <div class="sec-item"><i class="fa-solid fa-wind"></i> Live Sensors</div>
+    <div class="sec-item"><i class="fa-solid fa-fingerprint"></i> MFA Ready</div>
+    <div class="sec-item"><i class="fa-solid fa-lock"></i> Zero Trust</div>
+  </div>
+
+</div>
+
+<script>
+(function() {
+  const canvas = document.getElementById('particles');
+  const ctx = canvas.getContext('2d');
+  let W, H, particles = [];
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  function rand(min, max) { return Math.random() * (max - min) + min; }
+
+  for (let i = 0; i < 55; i++) {
+    particles.push({
+      x: rand(0, W), y: rand(0, H),
+      vx: rand(-0.15, 0.15), vy: rand(-0.15, 0.15),
+      r: rand(1, 2.5),
+      a: rand(0.1, 0.5),
+      color: Math.random() > 0.5 ? '99,200,255' : '167,139,250'
+    });
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    particles.forEach(p => {
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+      if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${p.color},${p.a})`;
+      ctx.fill();
+    });
+    particles.forEach((p1, i) => {
+      particles.slice(i+1).forEach(p2 => {
+        const dx = p1.x - p2.x, dy = p1.y - p2.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 120) {
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.strokeStyle = `rgba(99,200,255,${0.04 * (1 - dist/120)})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      });
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+(function() {
+  const card = document.getElementById('authCard');
+  if (!card) return;
+  let isTouch = false;
+  window.addEventListener('touchstart', () => isTouch = true, {once:true});
+
+  card.addEventListener('mousemove', (e) => {
+    if (isTouch) return;
+    const rect = card.getBoundingClientRect();
+    const cx = rect.left + rect.width  / 2;
+    const cy = rect.top  + rect.height / 2;
+    const dx = (e.clientX - cx) / (rect.width  / 2);
+    const dy = (e.clientY - cy) / (rect.height / 2);
+    card.style.transform = `perspective(1200px) rotateY(${dx * 4}deg) rotateX(${-dy * 3}deg) translateZ(8px)`;
+  });
+  card.addEventListener('mouseleave', () => {
+    card.style.transform = 'perspective(1200px) rotateY(0deg) rotateX(0deg) translateZ(0)';
+    card.style.transition = 'transform 0.6s cubic-bezier(0.34,1.56,0.64,1), border-color 0.3s ease, box-shadow 0.3s ease';
+  });
+  card.addEventListener('mouseenter', () => {
+    card.style.transition = 'transform 0.1s ease, border-color 0.3s ease, box-shadow 0.3s ease';
+  });
+})();
+
+document.querySelectorAll('.btn-primary').forEach(btn => {
+  btn.addEventListener('click', function(e) {
+    const r = document.createElement('span');
+    r.className = 'ripple-el';
+    const rect = this.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    r.style.cssText = `width:${size}px;height:${size}px;top:${e.clientY-rect.top-size/2}px;left:${e.clientX-rect.left-size/2}px`;
+    this.appendChild(r);
+    setTimeout(() => r.remove(), 600);
+  });
+});
+
+document.querySelectorAll('.btn-primary').forEach(btn => {
+  btn.addEventListener('mousemove', (e) => {
+    const r = btn.getBoundingClientRect();
+    btn.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100) + '%');
+    btn.style.setProperty('--my', ((e.clientY - r.top)  / r.height * 100) + '%');
+  });
+});
+</script>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+  import {
+    getAuth,
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    GoogleAuthProvider,
+    signInWithPopup,
+    sendPasswordResetEmail,
+    onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDn6ByAMIIFi8W66ZjAuQWAJfkSb0H5jhw",
+    authDomain: "house-monitoring-32f82.firebaseapp.com",
+    projectId: "house-monitoring-32f82",
+    storageBucket: "house-monitoring-32f82.firebasestorage.app",
+    messagingSenderId: "523847272058",
+    appId: "1:523847272058:web:32c53f5cb0642d00ee9dc3"
+  };
+
+  const app           = initializeApp(firebaseConfig);
+  const auth          = getAuth(app);
+  const googleProvider = new GoogleAuthProvider();
+
+  onAuthStateChanged(auth, user => {
+    if (user) window.location.href = "dashboard.html";
+  });
+
+  const authForm      = document.getElementById('authForm');
+  const emailInput    = document.getElementById('email');
+  const passwordInput = document.getElementById('password');
+  const confirmInput  = document.getElementById('confirmPassword');
+  const nameInput     = document.getElementById('nameInput');
+  const submitBtn     = document.getElementById('submitBtn');
+  const submitBtnText = document.getElementById('submitBtnText');
+  const googleBtn     = document.getElementById('googleBtn');
+  const githubBtn     = document.getElementById('githubBtn');
+  const statusMsg     = document.getElementById('statusMessage');
+  const togglePwd     = document.getElementById('togglePassword');
+  const toggleConf    = document.getElementById('toggleConfirm');
+  const forgotLink    = document.getElementById('forgotLink');
+  const formTitle     = document.getElementById('formTitle');
+  const formSubtitle  = document.getElementById('formSubtitle');
+  const tabLogin      = document.getElementById('tabLogin');
+  const tabSignup     = document.getElementById('tabSignup');
+  const strengthWrap  = document.getElementById('strengthWrap');
+  const strengthFill  = document.getElementById('strengthFill');
+  const strengthLabel = document.getElementById('strengthLabel');
+  const authId        = document.getElementById('authId');
+  const nameGroup     = document.getElementById('nameGroup');
+  const confirmGroup  = document.getElementById('confirmGroup');
+  const toast         = document.getElementById('toast');
+  const toastMsg      = document.getElementById('toastMsg');
+
+  let isLoginMode = true;
+
+  function showToast(msg, icon = 'fa-circle-check') {
+    toastMsg.textContent = msg;
+    toast.querySelector('i').className = `fa-solid ${icon}`;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3500);
+  }
+
+  function showStatus(msg, type) {
+    const icons = {
+      'msg-error':   'fa-triangle-exclamation',
+      'msg-success': 'fa-circle-check',
+      'msg-info':    'fa-circle-info'
+    };
+    statusMsg.innerHTML = `<i class="fa-solid ${icons[type]}"></i><span>${msg}</span>`;
+    statusMsg.className = `show ${type}`;
+  }
+
+  function bindToggle(btn, input) {
+    btn.addEventListener('click', () => {
+      const show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      btn.className = `fa-regular icon-right ${show ? 'fa-eye-slash' : 'fa-eye'}`;
+    });
+  }
+  bindToggle(togglePwd, passwordInput);
+  bindToggle(toggleConf, confirmInput);
+
+  passwordInput.addEventListener('input', () => {
+    const val = passwordInput.value;
+    if (!isLoginMode && val.length > 0) {
+      strengthWrap.classList.add('visible');
+      const score = calcStrength(val);
+      const configs = [
+        { w:'20%', bg:'#f87171', label:'Weak'  },
+        { w:'45%', bg:'#fbbf24', label:'Fair'  },
+        { w:'70%', bg:'#63c8ff', label:'Good'  },
+        { w:'100%',bg:'#34d399', label:'Strong'}
+      ];
+      const c = configs[Math.min(score, 3)];
+      strengthFill.style.width      = c.w;
+      strengthFill.style.background = c.bg;
+      strengthLabel.textContent     = `Strength: ${c.label}`;
+      strengthLabel.style.color     = c.bg;
+    } else {
+      strengthWrap.classList.remove('visible');
+    }
+  });
+  function calcStrength(p) {
+    let s = 0;
+    if (p.length >= 8)           s++;
+    if (/[A-Z]/.test(p))        s++;
+    if (/[0-9]/.test(p))        s++;
+    if (/[^A-Za-z0-9]/.test(p)) s++;
+    return s - 1;
+  }
+
+  function setMode(mode) {
+    isLoginMode = mode === 'login';
+    statusMsg.classList.remove('show');
+    passwordInput.value = '';
+    confirmInput.value  = '';
+    strengthWrap.classList.remove('visible');
+
+    if (isLoginMode) {
+      tabLogin.classList.add('active');
+      tabSignup.classList.remove('active');
+      formTitle.textContent     = 'Welcome Back';
+      formSubtitle.textContent  = 'Enter your credentials to access the monitoring dashboard.';
+      submitBtnText.textContent = 'Authenticate';
+      authId.textContent        = 'AUTH::LOGIN';
+      forgotLink.style.display  = 'block';
+      nameGroup.style.display    = 'none';
+      confirmGroup.style.display = 'none';
+      document.getElementById('toggleText').innerHTML = `Don't have an account? <span id="toggleModeFooter">Sign Up</span>`;
+    } else {
+      tabSignup.classList.add('active');
+      tabLogin.classList.remove('active');
+      formTitle.textContent     = 'Create Account';
+      formSubtitle.textContent  = 'Join the network and start monitoring air quality today.';
+      submitBtnText.textContent = 'Create Account';
+      authId.textContent        = 'AUTH::REGISTER';
+      forgotLink.style.display  = 'none';
+      nameGroup.style.display    = 'block';
+      confirmGroup.style.display = 'block';
+      document.getElementById('toggleText').innerHTML = `Already have an account? <span id="toggleModeFooter">Log In</span>`;
+    }
+    document.getElementById('toggleModeFooter').addEventListener('click', () => {
+      setMode(isLoginMode ? 'signup' : 'login');
+    });
+  }
+
+  tabLogin.addEventListener('click',  () => setMode('login'));
+  tabSignup.addEventListener('click', () => setMode('signup'));
+  document.getElementById('toggleModeFooter').addEventListener('click', () => {
+    setMode(isLoginMode ? 'signup' : 'login');
+  });
+
+  forgotLink.addEventListener('click', async e => {
+    e.preventDefault();
+    const email = emailInput.value.trim();
+    if (!email) { showStatus('Enter your email address first.', 'msg-error'); return; }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      showStatus('Reset email sent! Check your inbox.', 'msg-success');
+      showToast('Password reset email sent', 'fa-paper-plane');
+    } catch (err) { showStatus(formatError(err.code), 'msg-error'); }
+  });
+
+  authForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    const email    = emailInput.value.trim();
+    const password = passwordInput.value;
+    if (!email || !password) { showStatus('Please fill in all fields.', 'msg-error'); return; }
+    if (!isLoginMode) {
+      const confirm = confirmInput.value;
+      if (password !== confirm) { showStatus('Passwords do not match.', 'msg-error'); return; }
+      if (password.length < 6)  { showStatus('Password must be at least 6 characters.', 'msg-error'); return; }
+    }
+    submitBtn.disabled = true;
+    submitBtn.classList.add('loading');
+    statusMsg.classList.remove('show');
+    try {
+      if (isLoginMode) {
+        await signInWithEmailAndPassword(auth, email, password);
+        showStatus('Authentication successful. Loading dashboard…', 'msg-success');
+        showToast('Access granted — sensors online');
+      } else {
+        await createUserWithEmailAndPassword(auth, email, password);
+        showStatus('Account created! Loading dashboard…', 'msg-success');
+        showToast('Account created successfully');
+      }
+    } catch (err) {
+      showStatus(formatError(err.code), 'msg-error');
+      submitBtn.disabled = false;
+      submitBtn.classList.remove('loading');
+    }
+  });
+
+  googleBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    statusMsg.classList.remove('show');
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      showStatus(`Access granted — ${result.user.displayName}`, 'msg-success');
+      showToast(`Welcome, ${result.user.displayName}!`);
+    } catch (err) { showStatus(formatError(err.code), 'msg-error'); }
+  });
+
+  githubBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    showStatus('GitHub login — coming in next update.', 'msg-info');
+    showToast('GitHub auth coming soon', 'fa-circle-info');
+  });
+
+  function formatError(code) {
+    const map = {
+      'auth/invalid-credential':    'Invalid email or password.',
+      'auth/email-already-in-use':  'This email is already registered.',
+      'auth/weak-password':         'Password must be at least 6 characters.',
+      'auth/popup-closed-by-user':  'Sign-in popup was closed.',
+      'auth/user-not-found':        'No account found with this email.',
+      'auth/wrong-password':        'Incorrect password.',
+      'auth/too-many-requests':     'Too many attempts. Please wait.',
+      'auth/network-request-failed':'Network error. Check connection.',
+    };
+    return map[code] || 'System error. Please try again.';
+  }
+</script>
+
+</body>
+</html>
